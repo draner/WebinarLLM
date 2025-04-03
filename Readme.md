@@ -1,7 +1,5 @@
 # Application RAG avec Ollama et Streamlit
 
-Cette application démontre un système de RAG (Retrieval-Augmented Generation) utilisant des modèles de langage locaux via Ollama, une base de données vectorielle ChromaDB, et une interface utilisateur Streamlit.
-
 ## Fonctionnalités
 
 - 🤖 Utilisation de LLMs locaux via Ollama
@@ -65,7 +63,7 @@ streamlit run rag_app/app.py
 
 ## Structure du projet
 
-```
+```sh
 rag-streamlit-app/
 ├── pyproject.toml       # Configuration du projet et dépendances
 ├── README.md            # Ce fichier

@@ -4,13 +4,11 @@ import uuid
 import ollama
 import pandas as pd
 import streamlit as st
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.chat_models import ChatOllama
 from langchain_community.document_loaders import CSVLoader, PyPDFLoader, TextLoader
-from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_ollama import OllamaEmbeddings
 
 # Configuration et constantes
 OLLAMA_BASE_URL = "http://localhost:11434"
@@ -42,10 +40,19 @@ if "selected_page" not in st.session_state:
 def get_available_models():
     try:
         models = ollama.list()
-        model_names = [model["name"] for model in models.get("models", [])]
-        # Ajouter les modèles d'embedding à la liste
-        embedding_models = ["nomic-embed-text", "all-minilm"]
-        return model_names, embedding_models
+        model_list = models.get("models", [])
+        model_names = [model["name"] for model in model_list if "name" in model]
+        # Filtrer les modèles pour séparer les modèles de chat et d'embedding (approche simplifiée)
+        chat_models = [model for model in model_names if "llama" in model.lower() or "mistral" in model.lower()]
+        embedding_models = [model for model in model_names if "embed" in model.lower()]
+
+        # Ajouter des modèles par défaut si aucun n'est trouvé
+        if not chat_models:
+            chat_models = ["mistral"]  # Valeur par défaut si aucun modèle de chat n'est trouvé
+        if not embedding_models:
+            embedding_models = ["nomic-embed-text"]  # Valeur par défaut si aucun modèle d'embedding n'est trouvé
+
+        return chat_models, embedding_models
     except Exception as e:
         st.error(f"Erreur lors de la récupération des modèles : {e}")
         return ["mistral"], ["nomic-embed-text"]
@@ -115,26 +122,33 @@ def update_vectorstore(chunks=None):
 
 
 # Fonction pour générer une réponse
-def generate_response(query):
+def generate_response_stream(query):
+    """Renvoie un générateur de tokens pour permettre le streaming de la réponse."""
+    # Récupérer les documents pertinents
     if st.session_state.vectorstore is None:
-        return "Veuillez d'abord ajouter des documents à la base de connaissances."
+        # Pas de base vectorielle : on se contente d'appeler le LLM
+        llm = ChatOllama(
+            model=st.session_state.chat_model,
+            base_url=OLLAMA_BASE_URL,
+            temperature=0.3,
+            streaming=True,  # IMPORTANT pour autoriser le stream
+        )
+        return llm.stream(query)
 
-    chat_model = st.session_state.chat_model
-
-    # Initialiser le modèle de chat
-    llm = ChatOllama(model=chat_model, base_url=OLLAMA_BASE_URL, temperature=0.3)
-
-    # Initialiser la mémoire
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-
-    # Initialiser la chaîne de conversation avec récupération
+    # Sinon, on récupère des chunks depuis le retriever
     retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
+    docs = retriever.get_relevant_documents(query)
 
-    chain = ConversationalRetrievalChain.from_llm(llm=llm, retriever=retriever, memory=memory, verbose=True)
+    # Stocker l’info sur les chunks utilisés (pour l’afficher ensuite)
+    st.session_state.used_chunks = docs
 
-    # Générer la réponse
-    response = chain.invoke({"question": query})
-    return response["answer"]
+    # Construire un prompt simple : (vous pouvez affiner l’enchaînement si besoin)
+    context = "\n".join(d.page_content for d in docs)
+    prompt = f"Voici le contexte :\n{context}\n\nQuestion : {query}\nRéponse :"
+
+    # Instancier le LLM en mode streaming
+    llm = ChatOllama(model=st.session_state.chat_model, base_url=OLLAMA_BASE_URL, temperature=0.3, streaming=True)
+    return llm.stream(prompt)
 
 
 # Interface utilisateur Streamlit
@@ -177,12 +191,11 @@ def main():
         st.subheader("Ajouter des documents")
         uploaded_file = st.file_uploader("Choisir un fichier", type=["pdf", "txt", "csv"])
 
-        if uploaded_file is not None:
-            if st.button("Traiter le document", use_container_width=True):
-                with st.spinner("Traitement du document en cours..."):
-                    chunks = process_uploaded_file(uploaded_file)
-                    update_vectorstore(chunks)
-                st.success(f"Document '{uploaded_file.name}' ajouté avec succès!")
+        if uploaded_file is not None and st.button("Traiter le document", use_container_width=True):
+            with st.spinner("Traitement du document en cours..."):
+                chunks = process_uploaded_file(uploaded_file)
+                update_vectorstore(chunks)
+            st.success(f"Document '{uploaded_file.name}' ajouté avec succès!")
 
     # Page principale (dynamique selon la sélection)
     if st.session_state.selected_page == "Chat":
@@ -194,6 +207,10 @@ def main():
 # Page de chat
 def render_chat_page():
     st.title("Chat RAG avec Ollama")
+    # Bouton "Nouvelle Conversation"
+    if st.button("Nouvelle Conversation", type="primary"):
+        st.session_state.chat_history = []
+        st.rerun()
 
     # Afficher l'historique des messages
     for message in st.session_state.chat_history:
@@ -210,10 +227,13 @@ def render_chat_page():
             st.write(prompt)
 
         # Générer et afficher la réponse
-        with st.chat_message("assistant"):
-            with st.spinner("Génération de la réponse..."):
-                response = generate_response(prompt)
-                st.write(response)
+        with st.chat_message("assistant"), st.spinner("Génération de la réponse..."):
+            response = st.write_stream(generate_response_stream(prompt))
+        # Affichage des chunks utilisés
+        if "used_chunks" in st.session_state and st.session_state.used_chunks:
+            with st.expander("Chunks utilisés"):
+                for idx, doc in enumerate(st.session_state.used_chunks, start=1):
+                    st.write(f"**Chunk {idx} :** {doc.page_content[:300]}...")
 
         # Ajouter la réponse à l'historique
         st.session_state.chat_history.append({"role": "assistant", "content": response})

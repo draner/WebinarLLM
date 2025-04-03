@@ -42,11 +42,6 @@ chroma_logs/
 temp_docs/
 *.tmp
 
-# Documents
-*.pdf
-*.csv
-*.txt
-
 # IDE
 .idea/
 .vscode/

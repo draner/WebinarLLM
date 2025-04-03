@@ -11,22 +11,22 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
     "streamlit",
     "langchain",
     "langchain-community",
+    "langchain-ollama",
     "ollama",
     "chromadb",
     "pandas",
     "PyPDF2",
     "python-magic",
     "tiktoken",
+    "pypdf",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +34,10 @@ dev = [
     "ruff",
     "mypy",
 ]
+
+[tool.setuptools.packages.find]
+include = ["rag_app"]
+exclude = ["tests", "chroma_db", "temp_docs"]
 
 [tool.ruff]
 line-length = 120
