@@ -5,15 +5,14 @@ import ollama
 import pandas as pd
 import streamlit as st
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.chat_models import ChatOllama
 from langchain_community.document_loaders import CSVLoader, PyPDFLoader, TextLoader
 from langchain_community.vectorstores import Chroma
-from langchain_ollama import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings, ChatOllama
 
 # Configuration et constantes
 OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
-DEFAULT_CHAT_MODEL = "mistral"
+DEFAULT_CHAT_MODEL = "gemma3:12b"
 TEMP_DIR = "temp_docs"
 DB_DIR = "chroma_db"
 
@@ -36,14 +35,14 @@ if "selected_page" not in st.session_state:
 
 
 # Fonction pour obtenir la liste des modèles disponibles depuis Ollama
-@st.cache_data(ttl=300)  # Cache pour 5 minutes
+@st.cache_data(ttl=300)
 def get_available_models():
     try:
         models = ollama.list()
         model_list = models.get("models", [])
-        model_names = [model["name"] for model in model_list if "name" in model]
+        model_names = [model["model"] for model in model_list]
         # Filtrer les modèles pour séparer les modèles de chat et d'embedding (approche simplifiée)
-        chat_models = [model for model in model_names if "llama" in model.lower() or "mistral" in model.lower()]
+        chat_models = [model for model in model_names if "embed" not in model.lower()]
         embedding_models = [model for model in model_names if "embed" in model.lower()]
 
         # Ajouter des modèles par défaut si aucun n'est trouvé
@@ -107,7 +106,7 @@ def update_vectorstore(chunks=None):
     # Initialiser les embeddings
     embeddings = OllamaEmbeddings(model=embedding_model, base_url=OLLAMA_BASE_URL)
 
-    # Si la vectorstore existe déjà, ajouter les nouveaux chunks
+    # Si le vectorstore existe déjà, ajouter les nouveaux chunks
     if st.session_state.vectorstore is not None and chunks:
         st.session_state.vectorstore.add_documents(chunks)
     # Sinon, créer une nouvelle vectorstore
@@ -115,7 +114,7 @@ def update_vectorstore(chunks=None):
         st.session_state.vectorstore = Chroma.from_documents(
             documents=chunks, embedding=embeddings, persist_directory=DB_DIR
         )
-    # Si la vectorstore n'existe pas et qu'il n'y a pas de chunks, initialiser une vectorstore vide
+    # Si le vectorstore n'existe pas et qu'il n'y a pas de chunks, initialiser une vectorstore vide
     elif st.session_state.vectorstore is None:
         # Créer une collection vide
         st.session_state.vectorstore = Chroma(embedding_function=embeddings, persist_directory=DB_DIR)
@@ -137,7 +136,7 @@ def generate_response_stream(query):
 
     # Sinon, on récupère des chunks depuis le retriever
     retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
-    docs = retriever.get_relevant_documents(query)
+    docs = retriever.invoke(query)
 
     # Stocker l’info sur les chunks utilisés (pour l’afficher ensuite)
     st.session_state.used_chunks = docs
