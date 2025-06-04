@@ -35,12 +35,6 @@ pip install uv
 uv sync
 ```
 
-Alternatively, vous pouvez aussi installer avec pip:
-
-```bash
-uv pip install -e .
-```
-
 ### 3. Préparation d'Ollama
 
 Assurez-vous qu'Ollama est en cours d'exécution et que vous avez téléchargé les modèles nécessaires:
