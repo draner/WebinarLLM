@@ -55,6 +55,15 @@ ollama pull nomic-embed-text
 
 ## Utilisation
 
+### Activer l'environnement virtuel
+Selon votre système d'exploitation :
+```bash
+# Linux / MacOS :
+source .venv/bin/activate
+# Windows :
+.venv\Scripts\activate
+```
+
 ### Lancer l'application
 
 ```bash
