@@ -47,14 +47,14 @@ def get_available_models():
 
         # Ajouter des modèles par défaut si aucun n'est trouvé
         if not chat_models:
-            chat_models = ["mistral"]  # Valeur par défaut si aucun modèle de chat n'est trouvé
+            chat_models = [DEFAULT_CHAT_MODEL]  # Valeur par défaut si aucun modèle de chat n'est trouvé
         if not embedding_models:
-            embedding_models = ["nomic-embed-text"]  # Valeur par défaut si aucun modèle d'embedding n'est trouvé
+            embedding_models = [DEFAULT_EMBEDDING_MODEL]  # Valeur par défaut si aucun modèle d'embedding n'est trouvé
 
         return chat_models, embedding_models
     except Exception as e:
         st.error(f"Erreur lors de la récupération des modèles : {e}")
-        return ["mistral"], ["nomic-embed-text"]
+        return [DEFAULT_CHAT_MODEL], [DEFAULT_EMBEDDING_MODEL]
 
 
 # Fonction pour changer de page
