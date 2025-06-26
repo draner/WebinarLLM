@@ -7,7 +7,7 @@ import streamlit as st
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import CSVLoader, PyPDFLoader, TextLoader
 from langchain_community.vectorstores import Chroma
-from langchain_ollama import OllamaEmbeddings, ChatOllama
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 # Configuration et constantes
 OLLAMA_BASE_URL = "http://localhost:11434"

@@ -20,6 +20,7 @@ dependencies = [
     "langchain",
     "langchain-community",
     "langchain-ollama",
+    "langchain-huggingface",
     "ollama",
     "chromadb",
     "pandas",
@@ -27,6 +28,12 @@ dependencies = [
     "python-magic",
     "tiktoken",
     "pypdf",
+    "faiss-cpu",
+    "sentence-transformers",
+    "chromadb",
+    "scikit-learn",
+    "jupyter",
+    "rank_bm25",
 ]
 
 [project.optional-dependencies]
